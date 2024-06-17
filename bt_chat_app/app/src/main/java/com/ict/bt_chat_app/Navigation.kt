@@ -1,5 +1,6 @@
 package com.ict.bt_chat_app
 
+import android.bluetooth.BluetoothAdapter
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -9,7 +10,7 @@ import androidx.navigation.navArgument
 
 
 @Composable
-fun Navigation(navController:NavHostController, deviceList: MutableList<HashMap<String, String>>?, pair: MutableList<HashMap<String, String>>?){
+fun Navigation(navController:NavHostController, deviceList: MutableList<HashMap<String, String>>?, pair: MutableList<HashMap<String, String>>?, bluetoothAdapter: BluetoothAdapter?){
     NavHost(
         navController = navController,
         startDestination = Path.Start.name
@@ -17,7 +18,7 @@ fun Navigation(navController:NavHostController, deviceList: MutableList<HashMap<
         composable(
             route = Path.Start.name,
         ){
-            MainScreen( navController = navController, deviceList, pair)
+            MainScreen( navController = navController, deviceList, pair, bluetoothAdapter)
         }
 
         composable(route = Path.Chat.name+"/{deviceName}/{deviceMacAddress}",

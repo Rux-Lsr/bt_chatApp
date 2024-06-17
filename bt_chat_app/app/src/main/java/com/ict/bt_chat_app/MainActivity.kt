@@ -11,6 +11,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,6 +20,9 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import com.ict.bt_chat_app.ui.theme.Bt_chat_appTheme
+import java.util.UUID
+
+val MY_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
 const val REQUEST_FINE_LOCATION = 1
  const val REQUEST_ENABLE_BT = 2
@@ -59,6 +63,19 @@ class MainActivity : ComponentActivity() {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_FINE_LOCATION)
         }
 
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_CONNECT), REQUEST_FINE_LOCATION)
+            }
+
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_CONNECT), REQUEST_FINE_LOCATION)
+            }
+        }
+
+
+
+
         pairedDevices?.forEach{ device ->
             val deviceInfo = HashMap<String, String>()
             deviceInfo["nom"] = device.name ?: "Inconnu"
@@ -74,12 +91,12 @@ class MainActivity : ComponentActivity() {
         val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
         registerReceiver(receiver, filter)
 
-        //bluetoothAdapter?.startDiscovery()
+        bluetoothAdapter?.startDiscovery()
 
         setContent {
             val navController  = rememberNavController()
             Bt_chat_appTheme {
-                Navigation(navController, deviceList = devicesList, pair = pair)
+                Navigation(navController, deviceList = devicesList, pair = pair, bluetoothAdapter = bluetoothAdapter)
             }
         }
     }
