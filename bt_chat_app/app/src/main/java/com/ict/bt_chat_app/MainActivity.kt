@@ -22,10 +22,14 @@ import androidx.navigation.compose.rememberNavController
 import com.ict.bt_chat_app.ui.theme.Bt_chat_appTheme
 import java.util.UUID
 
-val MY_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+val MY_UUID: UUID = UUID.fromString("60decfb3-b886-4b9b-af70-8efa4dbd3ea2")
 
-const val REQUEST_FINE_LOCATION = 1
- const val REQUEST_ENABLE_BT = 2
+const val REQUEST_FINE_LOCATION = 0
+const val REQUEST_ENABLE_BT = 1
+const val REQUEST_BT = 2
+const val REQUEST_BT_ADMIN = 3
+const val REQUEST_BT_CONNECT = 4
+const val REQUEST_BT_SCAN = 5
 
 class MainActivity : ComponentActivity() {
 
@@ -54,27 +58,29 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
-
     override fun onCreate(savedInstanceState: Bundle?) {
-
         super.onCreate(savedInstanceState)
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_FINE_LOCATION)
-        }
 
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU) {
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_CONNECT), REQUEST_FINE_LOCATION)
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_CONNECT), REQUEST_BT_CONNECT)
             }
 
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_CONNECT), REQUEST_FINE_LOCATION)
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_CONNECT), REQUEST_BT_SCAN)
+            }
+
+        }else{
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_FINE_LOCATION)
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH), REQUEST_BT)
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADMIN) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_ADMIN), REQUEST_BT_ADMIN)
             }
         }
-
-
-
 
         pairedDevices?.forEach{ device ->
             val deviceInfo = HashMap<String, String>()
@@ -105,5 +111,7 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         unregisterReceiver(receiver)
     }
+
+
 }
 
