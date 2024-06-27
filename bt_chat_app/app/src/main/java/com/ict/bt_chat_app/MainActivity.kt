@@ -4,18 +4,14 @@ package com.ict.bt_chat_app
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothManager
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
+import android.bluetooth.*
+import android.content.*
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -23,14 +19,22 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.ict.bt_chat_app.ui.theme.Bt_chat_appTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.io.IOException
+import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     val REQUEST_ENABLE_BT = 0
@@ -39,6 +43,11 @@ class MainActivity : ComponentActivity() {
     private var infoAppareilAssocier: Set<BluetoothDevice>? = null
     var bluetoothAdapter: BluetoothAdapter? = null
     var isScanning = false // Track scanning state
+
+    private var connectedDevice: BluetoothDevice? = null
+    private var bluetoothSocket: BluetoothSocket? = null
+    private var isConnected = false
+
 
     // Permission Request Codes
     private val PERMISSIONS_REQUEST_CODE = 101
@@ -80,6 +89,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             Bt_chat_appTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    val selectedDevice = remember { mutableStateOf("") } // Declare selectedDevice here
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -95,7 +105,7 @@ class MainActivity : ComponentActivity() {
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                         // List of Discovered Devices
-                        AppareilList(listeAppareils = listeAppareils)
+                        AppareilList(listeAppareils = listeAppareils, selectedDevice = selectedDevice)
                     }
                 }
             }
@@ -254,31 +264,128 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-}
 
-@Composable
-fun AppareilList(listeAppareils: MutableList<HashMap<String, String>>) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(listeAppareils) { appareil ->
-            AppareilItem(appareil)
+    @Composable
+    fun AppareilList(listeAppareils: MutableList<HashMap<String, String>>, selectedDevice: MutableState<String>) {
+         val coroutineScope = rememberCoroutineScope()
+        Column(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(listeAppareils) { appareil ->
+                    AppareilItem(appareil) {
+                        selectedDevice.value = appareil["address"] ?: ""
+                    }
+                }
+            }
+
+            // Button to Pair or Connect
+            Button(
+                onClick = {
+                    val address = selectedDevice.value
+                    if (address.isNotEmpty()) {
+                        if (!isConnected) {
+                            coroutineScope.launch {
+                                connectToDevice(address)
+                            }
+                        } else {
+                            // Disconnect Logic
+                            disconnect()
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Text(if (!isConnected) "Connect" else "Disconnect")
+            }
+        }
+    }
+
+    // Connect to Device
+    @SuppressLint("MissingPermission")
+    private suspend fun connectToDevice(address: String) {
+        // Find the BluetoothDevice
+        val device = bluetoothAdapter?.getRemoteDevice(address) ?: return
+
+        // Check if the device is already paired
+        if (device.bondState == BluetoothDevice.BOND_NONE) {
+            // Initiate Pairing
+            device.createBond()
+            Toast.makeText(this, "Pairing with device...", Toast.LENGTH_SHORT).show()
+            // Wait for pairing to complete
+            while (device.bondState != BluetoothDevice.BOND_BONDED) {
+                delay(100) // Check every 100 milliseconds
+            }
+        }
+
+        // Connect to the device
+        val uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB") // Replace with the correct UUID
+        try {
+            bluetoothSocket = device.createInsecureRfcommSocketToServiceRecord(uuid)
+            bluetoothSocket?.connect()
+            connectedDevice = device
+            isConnected = true
+            Toast.makeText(this, "Connected to device!", Toast.LENGTH_SHORT).show()
+        } catch (e: IOException) {
+            Log.e("BluetoothConnection", "Failed to connect: ${e.message}")
+            Toast.makeText(this, "Connection failed.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Disconnect from Device
+    @SuppressLint("MissingPermission")
+    private fun disconnect() {
+        try {
+            bluetoothSocket?.close()
+            bluetoothSocket = null
+            connectedDevice = null
+            isConnected = false
+            Toast.makeText(this, "Disconnected.", Toast.LENGTH_SHORT).show()
+        } catch (e: IOException) {
+            Log.e("BluetoothConnection", "Failed to disconnect: ${e.message}")
         }
     }
 }
 
 @Composable
-fun AppareilItem(appareil: HashMap<String, String>) {
+fun AppareilList(listeAppareils: MutableList<HashMap<String, String>>, selectedDevice: MutableState<String>) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        items(listeAppareils) { appareil ->
+            AppareilItem(appareil) {
+                selectedDevice.value = appareil["address"] ?: ""
+            }
+        }
+    }
+}
+
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppareilItem(appareil: HashMap<String, String>, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp),
-        elevation = CardDefaults.cardElevation(2.dp)
+        elevation = CardDefaults.cardElevation(2.dp),
+        onClick = onClick
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = appareil["nom"] ?: "", style = MaterialTheme.typography.displayLarge)
-            Text(text = appareil["address"] ?: "")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = appareil["nom"] ?: "", style = MaterialTheme.typography.displaySmall)
+                Text(text = appareil["address"] ?: "")
+            }
+            Icon(
+                imageVector = Icons.Filled.LocationOn,
+                contentDescription = "Bluetooth",
+                modifier = Modifier.size(32.dp)
+            )
         }
     }
 }
-
-
 
